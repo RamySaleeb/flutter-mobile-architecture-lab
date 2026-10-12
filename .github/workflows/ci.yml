@@ -34,7 +34,25 @@ jobs:
           html = html.replace('A new Flutter project.', 'Explore an original Flutter architecture demo by Ramy Saleeb: caching, safe refresh, and recoverable errors.')
           page.write_text(html)
           PY
-      - run: flutter build web --release --base-href /flutter-mobile-architecture-lab/
+      - run: flutter build web --release --base-href /flutter-mobile-architecture-lab/ --pwa-strategy=none
+      - name: Version browser entry assets
+        run: |
+          python3 - <<'PYCODE'
+          import os
+          from pathlib import Path
+          web = Path('build/web')
+          revision = os.environ['GITHUB_SHA']
+          script = f'main.{revision}.dart.js'
+          bootstrap = f'flutter_bootstrap.{revision}.js'
+          (web / script).write_bytes((web / 'main.dart.js').read_bytes())
+          loader = (web / 'flutter_bootstrap.js').read_text()
+          assert '"mainJsPath":"main.dart.js"' in loader
+          (web / bootstrap).write_text(loader.replace('"mainJsPath":"main.dart.js"', f'"mainJsPath":"{script}"'))
+          page = web / 'index.html'
+          html = page.read_text()
+          assert 'src="flutter_bootstrap.js"' in html
+          page.write_text(html.replace('src="flutter_bootstrap.js"', f'src="{bootstrap}"'))
+          PYCODE
       - uses: actions/configure-pages@v5
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       - uses: actions/upload-pages-artifact@v4
