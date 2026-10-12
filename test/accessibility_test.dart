@@ -88,7 +88,12 @@ void main() {
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
       isFalse,
     );
-    await tabTo(tester, find.text('Retry'));
+    // Inserting Retry after a failure must not move it to the end of focus order.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(Focus.of(tester.element(find.text('Retry'))).hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Retry'), findsNothing);
@@ -108,7 +113,7 @@ void main() {
     expect(search.label, contains('Search the catalog'));
     expect(search.getSemanticsData().flagsCollection.isTextField, isTrue);
     final submit = tester.getSemantics(find.byTooltip('Search'));
-    expect(submit.label, 'Search');
+    expect(submit.getSemanticsData().tooltip, 'Search');
     expect(submit.getSemanticsData().flagsCollection.isButton, isTrue);
     await tester.ensureVisible(find.text('Simulate offline'));
     await tester.pumpAndSettle();
