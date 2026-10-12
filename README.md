@@ -2,6 +2,8 @@
 
 ### A Flutter architecture lab for dependable mobile experiences
 
+**[Try the live demo →](https://ramysaleeb.github.io/flutter-mobile-architecture-lab/)** · Runs in your browser; no installation or sign-in required.
+
 An original, runnable demo by [Ramy Saleeb](https://github.com/RamySaleeb), built around one question: **what should the user see when a request is slow, fails, or finishes out of order?**
 
 Pocket Catalog browses fictional products through a simulated service. It keeps useful content visible during refresh, reuses fresh cached results, and prevents older requests from replacing a newer search. No API keys, backend deployment, or private source code required.
@@ -11,6 +13,10 @@ Pocket Catalog browses fictional products through a simulated service. It keeps 
 ![Pocket Catalog running in a browser](preview.jpg)
 
 ## Start here
+
+For a quick look, [open Pocket Catalog in your browser](https://ramysaleeb.github.io/flutter-mobile-architecture-lab/). Search the fictional catalog, trigger a failed refresh, and try the offline simulation. The cache lasts for the current app session; reloading resets it. Initial loading requires an internet connection.
+
+To explore the source locally:
 
 ```bash
 git clone https://github.com/RamySaleeb/flutter-mobile-architecture-lab.git
