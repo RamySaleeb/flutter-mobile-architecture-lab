@@ -60,6 +60,9 @@ class CachedCatalogRepository implements CatalogRepository {
 
 /// Deliberately simulated transport: no network, credentials, or analytics.
 class DemoCatalogService implements CatalogService {
+  DemoCatalogService({this.delayForQuery, this.failsForQuery});
+  Duration Function(String query)? delayForQuery;
+  bool Function(String query)? failsForQuery;
   bool offline = false;
   bool failNext = false;
   static const items = [
@@ -103,11 +106,14 @@ class DemoCatalogService implements CatalogService {
 
   @override
   Future<List<CatalogItem>> fetch(String query) async {
-    final shouldFail = offline || failNext;
-    failNext = false;
-    await Future<void>.delayed(const Duration(milliseconds: 750));
-    if (shouldFail) throw const CatalogUnavailable();
     final key = normalizeQuery(query);
+    final shouldFail =
+        offline || failNext || (failsForQuery?.call(key) ?? false);
+    failNext = false;
+    await Future<void>.delayed(
+      delayForQuery?.call(key) ?? const Duration(milliseconds: 750),
+    );
+    if (shouldFail) throw const CatalogUnavailable();
     return items
         .where(
           (item) =>
