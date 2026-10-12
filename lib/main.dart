@@ -146,7 +146,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
               final state = controller.state;
               final items = state.snapshot?.items ?? const <CatalogItem>[];
               return FocusTraversalGroup(
-                policy: WidgetOrderTraversalPolicy(),
+                policy: OrderedTraversalPolicy(),
                 child: SingleChildScrollView(
                   padding: EdgeInsets.all(
                     MediaQuery.sizeOf(context).width < 480 ? 16 : 24,
@@ -177,25 +177,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       const SizedBox(height: 8),
                       Semantics(
                         label: 'Search the catalog',
-                        child: TextField(
-                          enabled: !raceRunning,
-                          controller: search,
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (value) =>
-                              unawaited(controller.load(value)),
-                          decoration: InputDecoration(
-                            hintText: 'Try outdoor',
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: IconButton(
-                              tooltip: 'Search',
-                              icon: const Icon(
-                                Icons.arrow_forward,
-                                semanticLabel: 'Search',
+                        child: FocusTraversalOrder(
+                          order: const NumericFocusOrder(1),
+                          child: TextField(
+                            enabled: !raceRunning,
+                            controller: search,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (value) =>
+                                unawaited(controller.load(value)),
+                            decoration: InputDecoration(
+                              hintText: 'Try outdoor',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: FocusTraversalOrder(
+                                order: const NumericFocusOrder(2),
+                                child: IconButton(
+                                  tooltip: 'Search',
+                                  icon: const Icon(Icons.arrow_forward),
+                                  onPressed: raceRunning
+                                      ? null
+                                      : () => unawaited(
+                                          controller.load(search.text),
+                                        ),
+                                ),
                               ),
-                              onPressed: raceRunning
-                                  ? null
-                                  : () =>
-                                        unawaited(controller.load(search.text)),
                             ),
                           ),
                         ),
@@ -227,12 +231,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               ),
                             ),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: state.loading || raceRunning
-                                ? null
-                                : refresh,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Refresh'),
+                          FocusTraversalOrder(
+                            order: const NumericFocusOrder(3),
+                            child: OutlinedButton.icon(
+                              onPressed: state.loading || raceRunning
+                                  ? null
+                                  : refresh,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Refresh'),
+                            ),
                           ),
                         ],
                       ),
@@ -258,23 +265,34 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  OutlinedButton(
-                                    onPressed: raceRunning
-                                        ? null
-                                        : () => unawaited(runRace()),
-                                    child: const Text('Run request race'),
+                                  FocusTraversalOrder(
+                                    order: const NumericFocusOrder(4),
+                                    child: OutlinedButton(
+                                      onPressed: raceRunning
+                                          ? null
+                                          : () => unawaited(runRace()),
+                                      child: const Text('Run request race'),
+                                    ),
                                   ),
-                                  OutlinedButton(
-                                    onPressed: raceRunning
-                                        ? null
-                                        : () => unawaited(
-                                            runRace(olderFails: true),
-                                          ),
-                                    child: const Text('Run with older failure'),
+                                  FocusTraversalOrder(
+                                    order: const NumericFocusOrder(5),
+                                    child: OutlinedButton(
+                                      onPressed: raceRunning
+                                          ? null
+                                          : () => unawaited(
+                                              runRace(olderFails: true),
+                                            ),
+                                      child: const Text(
+                                        'Run with older failure',
+                                      ),
+                                    ),
                                   ),
-                                  TextButton(
-                                    onPressed: resetDemo,
-                                    child: const Text('Reset demo'),
+                                  FocusTraversalOrder(
+                                    order: const NumericFocusOrder(6),
+                                    child: TextButton(
+                                      onPressed: resetDemo,
+                                      child: const Text('Reset demo'),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -311,9 +329,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                     liveRegion: true,
                                     child: Text(state.error!),
                                   ),
-                                  TextButton(
-                                    onPressed: refresh,
-                                    child: const Text('Retry'),
+                                  FocusTraversalOrder(
+                                    order: const NumericFocusOrder(7),
+                                    child: TextButton(
+                                      onPressed: refresh,
+                                      child: const Text('Retry'),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -399,24 +420,30 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               const Text(
                                 'These controls simulate service availability. They do not change your device connection.',
                               ),
-                              SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Simulate offline'),
-                                value: service.offline,
-                                onChanged: raceRunning
-                                    ? null
-                                    : (value) => setState(
-                                        () => service.offline = value,
-                                      ),
+                              FocusTraversalOrder(
+                                order: const NumericFocusOrder(8),
+                                child: SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Simulate offline'),
+                                  value: service.offline,
+                                  onChanged: raceRunning
+                                      ? null
+                                      : (value) => setState(
+                                          () => service.offline = value,
+                                        ),
+                                ),
                               ),
-                              OutlinedButton(
-                                onPressed: state.loading || raceRunning
-                                    ? null
-                                    : () {
-                                        service.failNext = true;
-                                        refresh();
-                                      },
-                                child: const Text('Fail next refresh'),
+                              FocusTraversalOrder(
+                                order: const NumericFocusOrder(9),
+                                child: OutlinedButton(
+                                  onPressed: state.loading || raceRunning
+                                      ? null
+                                      : () {
+                                          service.failNext = true;
+                                          refresh();
+                                        },
+                                  child: const Text('Fail next refresh'),
+                                ),
                               ),
                               const SizedBox(height: 8),
                               const Text(
