@@ -35,9 +35,66 @@ class CatalogScreen extends StatefulWidget {
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  late final DemoCatalogService service;
-  late final CatalogController controller;
+  late DemoCatalogService service;
+  late CatalogController controller;
   final search = TextEditingController();
+  bool raceRunning = false;
+  String? raceStatus;
+  int session = 0;
+
+  void resetDemo() {
+    ++session;
+    controller.dispose();
+    setState(() {
+      service = DemoCatalogService();
+      controller = CatalogController(CachedCatalogRepository(service));
+      raceRunning = false;
+      raceStatus = null;
+      search.clear();
+    });
+    unawaited(controller.load(''));
+  }
+
+  Future<void> runRace({bool olderFails = false}) async {
+    final currentSession = ++session;
+    controller.dispose();
+    setState(() {
+      // A fresh session prevents cached or in-flight queries hiding the race.
+      service = DemoCatalogService(
+        delayForQuery: (query) =>
+            Duration(milliseconds: query == 'outdoor' ? 3000 : 750),
+        failsForQuery: (query) => olderFails && query == 'outdoor',
+      );
+      controller = CatalogController(CachedCatalogRepository(service));
+      raceRunning = true;
+      raceStatus =
+          '1. Outdoor started first (3 s).\n'
+          '2. Workspace started second (0.75 s).';
+      search.text = 'workspace';
+    });
+    final older = controller.load('outdoor', force: true);
+    final newer = controller.load('workspace', force: true);
+    await newer;
+    if (!mounted || currentSession != session) return;
+    setState(() {
+      raceStatus =
+          '3. Workspace finished first. Its results are visible.\n'
+          'Outdoor is still pending…';
+    });
+    await older;
+    if (!mounted || currentSession != session) return;
+    setState(() {
+      raceRunning = false;
+      raceStatus = olderFails
+          ? '4. Older Outdoor request failed. Workspace stays visible; '
+                'the old error cannot replace the current search.'
+          : '4. Older Outdoor request finished. Workspace stays visible; '
+                'Outdoor only warmed its own cache.';
+      // The scenario has ended; ordinary browsing uses the normal delay again.
+      service.delayForQuery = null;
+      service.failsForQuery = null;
+    });
+  }
 
   @override
   void initState() {
@@ -49,6 +106,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   void dispose() {
+    ++session;
     controller.dispose();
     search.dispose();
     super.dispose();
@@ -91,6 +149,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
                   const SizedBox(height: 24),
                   TextField(
+                    enabled: !raceRunning,
                     controller: search,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (value) => unawaited(controller.load(value)),
@@ -101,8 +160,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       suffixIcon: IconButton(
                         tooltip: 'Search',
                         icon: const Icon(Icons.arrow_forward),
-                        onPressed: () =>
-                            unawaited(controller.load(search.text)),
+                        onPressed: raceRunning
+                            ? null
+                            : () => unawaited(controller.load(search.text)),
                       ),
                     ),
                   ),
@@ -129,11 +189,66 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         ),
                       ),
                       OutlinedButton.icon(
-                        onPressed: state.loading ? null : refresh,
+                        onPressed: state.loading || raceRunning
+                            ? null
+                            : refresh,
                         icon: const Icon(Icons.refresh),
                         label: const Text('Refresh'),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'See a request race',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Text(
+                            'Start a slow Outdoor search, then a fast '
+                            'Workspace search. The latest search must win. '
+                            'Each run starts a fresh demo session.',
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton(
+                                onPressed: raceRunning
+                                    ? null
+                                    : () => unawaited(runRace()),
+                                child: const Text('Run request race'),
+                              ),
+                              OutlinedButton(
+                                onPressed: raceRunning
+                                    ? null
+                                    : () =>
+                                          unawaited(runRace(olderFails: true)),
+                                child: const Text('Run with older failure'),
+                              ),
+                              TextButton(
+                                onPressed: resetDemo,
+                                child: const Text('Reset demo'),
+                              ),
+                            ],
+                          ),
+                          if (raceStatus != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Text(raceStatus!),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                   if (state.loading)
                     const Padding(
@@ -229,11 +344,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Simulate offline'),
                             value: service.offline,
-                            onChanged: (value) =>
-                                setState(() => service.offline = value),
+                            onChanged: raceRunning
+                                ? null
+                                : (value) =>
+                                      setState(() => service.offline = value),
                           ),
                           OutlinedButton(
-                            onPressed: state.loading
+                            onPressed: state.loading || raceRunning
                                 ? null
                                 : () {
                                     service.failNext = true;
