@@ -32,13 +32,22 @@ Tested with **Flutter 3.47.7 / Dart 3.13.5**. Use `flutter devices` and `flutter
 
 ## A two-minute walkthrough
 
-1. Launch the app and wait for the fictional catalog.
-2. Search for `outdoor` using the keyboard search action or arrow button. Submit it again within 30 seconds: results come from the session cache.
-3. Tap **Fail next refresh**. The error offers a retry, while the existing results stay visible.
-4. Turn on **Simulate offline**, then search for a query you have not loaded. You see a recoverable error rather than unrelated cached results.
-5. Turn simulation off and retry. Search for a nonsense word to see the empty state.
+[Open the live demo](https://ramysaleeb.github.io/flutter-mobile-architecture-lab/) and start with a fresh page. Scroll below the results to find the simulation controls. Submit searches with Enter or the arrow button; typing alone does not start a request.
 
-The controls simulate service behavior; they do not inspect or alter device connectivity. Availability is sampled when a request starts. Every simulated request takes 750 ms.
+| Step | Try this | What you should see | What it demonstrates |
+| --- | --- | --- | --- |
+| 1. Browse | Wait for the initial load. | Six fictional products and **Fresh from demo service**. | Loading becomes useful content. |
+| 2. Search and reuse | Submit `outdoor`, then submit it again within 30 seconds. | Trail notebook and Ridge water bottle; the second submission shows **Session cache**. | A fresh query cache avoids another service call. |
+| 3. Fail safely | With those results loaded, click **Fail next refresh**. | An error with **Retry**, while both products remain visible. | A failed refresh preserves the last good snapshot. This button starts the refresh itself. |
+| 4. Recover | Click **Retry** with simulation offline switched off. | The error clears and **Fresh from demo service** returns. | Recovery does not require reloading the page. |
+| 5. Try an uncached failure | Switch on **Simulate offline**, then submit `workspace` for the first time. | A recoverable load error, without the unrelated outdoor results. | Cache entries belong to a specific query. |
+| 6. Recover and explore empty results | Switch simulation off and click **Retry**; then submit `zzzz`. | Two workspace products, then an empty-results state for `zzzz`. | Empty results and failures are different states. |
+
+**One more experiment:** reload `outdoor`, wait at least 30 seconds, and submit it again. Cached content appears immediately while it revalidates. **Refresh** always requests new data, even if the cache is fresh.
+
+The controls simulate service behavior; they do not inspect or alter device connectivity. Availability is sampled when a request starts, and each simulated request takes 750 ms. Reloading the page resets the session cache and controls; the initial page load requires internet access.
+
+Request deduplication and out-of-order completion are covered by controlled tests. The fixed-delay browser demo does not reliably reproduce a request race; see the contributor roadmap below.
 
 ## Architecture
 
@@ -97,7 +106,20 @@ flutter create --platforms=web --project-name=pocket_catalog --no-pub .
 flutter build web --release
 ```
 
-Tests cover shared in-flight requests, TTL boundaries, immutable snapshots, LRU eviction, failure retention, retries after synchronous adapter failures, out-of-order results, stale-cache revalidation, disposal, initial errors, and the browse/search/failed-refresh widget journey. A [GitHub Actions workflow](.github/workflows/ci.yml) runs formatting, analysis, tests, and a release web build.
+Tests cover shared in-flight requests, TTL boundaries, immutable snapshots, LRU eviction, failure retention, retries after synchronous adapter failures, out-of-order results, stale-cache revalidation, disposal, initial errors, and the browse/search/failed-refresh widget journey. A [GitHub Actions workflow](.github/workflows/ci.yml) runs formatting, analysis, tests, and a release web build. Successful changes on `main` deploy to GitHub Pages; pull requests run checks without publishing.
+
+## Contribute and explore the roadmap
+
+Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md): setup, design boundaries, verification, and what to include in a pull request. Bug reports, walkthrough feedback, and accessibility checks are welcome too.
+
+| Opportunity | Starting point | Scope |
+| --- | --- | --- |
+| [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
+| [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | UI and accessibility | Focused checks, tests, and fixes where needed. |
+| [Make out-of-order searches visible (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Demo behavior | A repeatable race scenario with controlled delays. |
+| [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Architecture discussion | Agree typed failures, cancellation ownership, and contract tests before implementation. |
+
+Each issue includes starting files and acceptance criteria. Check the [issue tracker](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues) for current status and comment before starting to avoid duplicate work. These are proposed contributions, not delivery commitments.
 
 ## Scope and next steps
 
