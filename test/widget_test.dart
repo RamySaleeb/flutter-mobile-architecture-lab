@@ -191,9 +191,118 @@ void main() {
     expect(controller.state.error, contains('Try again'));
   });
 
+  test('older failure cannot overwrite newer content or error state', () async {
+    final service = ControlledService();
+    final repository = CachedCatalogRepository(service);
+    final controller = CatalogController(repository);
+    addTearDown(controller.dispose);
+    final older = controller.load('outdoor');
+    final newer = controller.load('workspace');
+    service.succeed('workspace', [item]);
+    await newer;
+    final latest = controller.state;
+    service.fail('outdoor');
+    await older;
+    expect(controller.state, same(latest));
+    expect(controller.state.error, isNull);
+    expect(repository.cached('outdoor'), isNull);
+    expect(repository.cached('workspace')!.items, [item]);
+  });
+
+  for (final olderFails in [false, true]) {
+    testWidgets('race shows latest results; older failure=$olderFails', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(const PocketCatalogApp());
+      await tester.pump(const Duration(seconds: 1));
+      final button = find.text(
+        olderFails ? 'Run with older failure' : 'Run request race',
+      );
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.textContaining('Outdoor started first'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Orbit desk lamp'), findsOneWidget);
+      expect(find.text('Trail notebook'), findsNothing);
+      expect(find.textContaining('Outdoor is still pending'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 2300));
+      expect(find.text('Orbit desk lamp'), findsOneWidget);
+      expect(find.text('Trail notebook'), findsNothing);
+      expect(
+        find.textContaining(
+          olderFails
+              ? 'Older Outdoor request failed'
+              : 'Older Outdoor request finished',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsNothing);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+      // Re-running must start real requests, even with the same query names.
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.textContaining('Outdoor started first'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Reset demo'));
+      await tester.tap(find.text('Reset demo'));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Trail notebook'), findsOneWidget);
+      expect(find.textContaining('4. Older'), findsNothing);
+    });
+  }
+
+  testWidgets(
+    'reset during race isolates late completions and restores normal search',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(const PocketCatalogApp());
+      await tester.pump(const Duration(seconds: 1));
+      await tester.ensureVisible(find.text('Run with older failure'));
+      await tester.tap(find.text('Run with older failure'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Reset demo'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Trail notebook'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.textContaining('4. Older'), findsNothing);
+      expect(find.text('Retry'), findsNothing);
+      await tester.ensureVisible(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), 'outdoor');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Trail notebook'), findsOneWidget);
+      expect(find.text('Orbit desk lamp'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('disposing a running race ignores late callbacks', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(const PocketCatalogApp());
+    await tester.ensureVisible(find.text('Run request race'));
+    await tester.tap(find.text('Run request race'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 4));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('browse, search, and failed refresh retain useful UI', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(const PocketCatalogApp());
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
