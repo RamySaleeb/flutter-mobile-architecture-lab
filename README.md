@@ -139,7 +139,7 @@ Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md
 | [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
 | [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | Implemented | Keyboard traversal, readable status text, and focused accessibility regression tests. |
 | [Request-race demo (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Implemented | Try late success, late failure, and reset in the live demo. |
-| [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Architecture discussion | Agree typed failures, cancellation ownership, and contract tests before implementation. |
+| [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Proposal ready for review | Read the [HTTP adapter design](docs/decisions/0001-optional-http-catalog-adapter.md): typed failures, deadlines, shared-request cancellation, and tests. |
 
 Each issue includes starting files and acceptance criteria. Check the [issue tracker](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues) for current status and comment before starting to avoid duplicate work. These are proposed contributions, not delivery commitments.
 
