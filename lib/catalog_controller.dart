@@ -44,19 +44,36 @@ class CatalogController extends ChangeNotifier {
       final snapshot = await repository.refresh(key);
       if (!_isCurrent(generation)) return;
       _emit(CatalogState(query: key, snapshot: snapshot));
-    } catch (_) {
+    } catch (error) {
       if (!_isCurrent(generation)) return;
       _emit(
         CatalogState(
           query: key,
           snapshot: cached,
           fromCache: cached != null,
-          error: cached == null
-              ? 'Could not load this catalog. Try again.'
-              : 'Refresh failed. Your saved session results are still available.',
+          error: error is CatalogCancelled
+              ? null
+              : _message(error, cached != null),
         ),
       );
     }
+  }
+
+  String _message(Object error, bool hasCache) {
+    final message = switch (error) {
+      CatalogTimeout() => 'The catalog request took too long. Try again.',
+      CatalogConnectivityFailure() =>
+        'Could not reach the catalog service. Try again.',
+      CatalogHttpFailure(statusCode: 429 || >= 500) =>
+        'The catalog service is unavailable. Try again later.',
+      CatalogHttpFailure() =>
+        'The catalog service could not accept this request.',
+      CatalogInvalidResponse() => 'The catalog service returned unusable data.',
+      _ => 'Could not load this catalog. Try again.',
+    };
+    return hasCache
+        ? '$message Your saved session results are still available.'
+        : message;
   }
 
   bool _isCurrent(int generation) => !_disposed && generation == _generation;
