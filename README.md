@@ -108,7 +108,7 @@ The model and data layer do not import Flutter. The controller depends only on F
 | Screen disposed during a request | No later notifier update |
 | More than 20 cached queries | Least recently used entry is evicted |
 
-Freshness is checked when loading, not by a background timer. At exactly 30 seconds an entry is stale. Queries are trimmed and lowercased; the cache never substitutes results from a different query.
+Freshness is checked when loading, not by a background timer. At exactly 30 seconds an entry is stale. If the clock moves before a snapshot’s fetch time, the snapshot is stale but remains cached; correcting the clock to a fresh age restores freshness without refetching. Queries are trimmed and lowercased; the cache never substitutes results from a different query.
 
 ## Decisions and tradeoffs
 
@@ -162,7 +162,7 @@ Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md
 
 | Opportunity | Starting point | Scope |
 | --- | --- | --- |
-| [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
+| [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Implemented | Deterministic rollback/recovery and precise TTL-boundary tests; stale data remains available. |
 | [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | Implemented | Keyboard traversal, readable status text, and focused accessibility regression tests. |
 | [Request-race demo (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Implemented | Try late success, late failure, and reset in the live demo. |
 | [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Implemented | Optional adapter, typed failures, deadlines, owner cancellation, and [tests](test/catalog_http_test.dart); public demo stays simulated. |
