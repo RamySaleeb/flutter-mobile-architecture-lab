@@ -133,7 +133,7 @@ void main() {
     await tester.tap(find.text('Fail next refresh'));
     await tester.pumpAndSettle();
     final error = find.text(
-      'Refresh failed. Your saved session results are still available.',
+      'Could not reach the catalog service. Try again. Your saved session results are still available.',
     );
     await tester.ensureVisible(error);
     await tester.pumpAndSettle();
