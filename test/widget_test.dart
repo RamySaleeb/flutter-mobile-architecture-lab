@@ -64,9 +64,60 @@ void main() {
     expect(snapshot.items, [item]);
     expect(() => snapshot.items.clear(), throwsUnsupportedError);
     expect(repository.isFresh(snapshot), isTrue);
-    now = now.add(const Duration(seconds: 30));
+    now = snapshot.fetchedAt.add(
+      const Duration(seconds: 30) - const Duration(microseconds: 1),
+    );
+    expect(repository.isFresh(snapshot), isTrue);
+    now = snapshot.fetchedAt.add(const Duration(seconds: 30));
+    expect(repository.isFresh(snapshot), isFalse);
+    now = now.add(const Duration(microseconds: 1));
     expect(repository.isFresh(snapshot), isFalse);
   });
+
+  test(
+    'clock rollback marks cache stale without erasing it; recovery restores freshness',
+    () async {
+      final fetchedAt = DateTime.utc(2026, 10, 12, 12);
+      var now = fetchedAt;
+      final service = ControlledService();
+      final repository = CachedCatalogRepository(service, clock: () => now);
+      addTearDown(repository.dispose);
+      final pending = repository.refresh('outdoor');
+      service.succeed('outdoor');
+      final snapshot = await pending;
+      expect(snapshot.fetchedAt, fetchedAt);
+      expect(repository.isFresh(snapshot), isTrue);
+
+      // Both a minimal negative age and a larger rollback must be stale.
+      for (final rollback in [
+        const Duration(microseconds: 1),
+        const Duration(hours: 1),
+      ]) {
+        now = fetchedAt.subtract(rollback);
+        expect(
+          repository.isFresh(snapshot),
+          isFalse,
+          reason: '$rollback rollback',
+        );
+        expect(repository.cached('OUTDOOR'), same(snapshot));
+        expect(snapshot.items, [item]);
+        expect(snapshot.fetchedAt, fetchedAt);
+      }
+
+      // Clock correction restores freshness without refetching or replacing data.
+      for (final age in [Duration.zero, const Duration(seconds: 15)]) {
+        now = fetchedAt.add(age);
+        expect(
+          repository.isFresh(snapshot),
+          isTrue,
+          reason: 'restored age $age',
+        );
+        expect(repository.cached('outdoor'), same(snapshot));
+        expect(snapshot.fetchedAt, fetchedAt);
+      }
+      expect(service.calls, 1);
+    },
+  );
 
   test(
     'least recently used entry is evicted when capacity is reached',
