@@ -45,9 +45,21 @@ Tested with **Flutter 3.47.7 / Dart 3.13.5**. Use `flutter devices` and `flutter
 
 **One more experiment:** reload `outdoor`, wait at least 30 seconds, and submit it again. Cached content appears immediately while it revalidates. **Refresh** always requests new data, even if the cache is fresh.
 
-The controls simulate service behavior; they do not inspect or alter device connectivity. Availability is sampled when a request starts, and each simulated request takes 750 ms. Reloading the page resets the session cache and controls; the initial page load requires internet access.
+The controls simulate service behavior; they do not inspect or alter device connectivity. Availability is sampled when a request starts, and ordinary simulated requests take 750 ms (the race scenario below uses two different delays). Reloading the page resets the session cache and controls; the initial page load requires internet access.
 
-Request deduplication and out-of-order completion are covered by controlled tests. The fixed-delay browser demo does not reliably reproduce a request race; see the contributor roadmap below.
+### Watch the latest search win
+
+Near the search field, choose **Run request race**. No fast typing is needed:
+
+1. A fresh demo session starts an **Outdoor** request with a 3-second delay, then a **Workspace** request with a 0.75-second delay.
+2. Workspace finishes first. Orbit desk lamp and Fold laptop stand appear while Outdoor is still pending.
+3. Outdoor finishes last. The screen keeps Workspace results; the older response only warms its own query cache.
+
+Choose **Run with older failure** to repeat the sequence with the older request failing. Workspace remains visible, and the obsolete error does not replace the current screen. The status text explains each stage.
+
+Both scenarios force new requests in an isolated session, so repeats work even after those queries were cached. Search and failure controls pause during a race; **Reset demo** is always available and restores normal browsing, an empty cache, and default simulation settings. Late completions from a reset session cannot update the screen. After a completed race, ordinary requests use the normal 750 ms delay again.
+
+These are deterministic simulated delays, not a network benchmark. Request deduplication and completion ordering are also covered by controlled tests.
 
 ## Architecture
 
@@ -106,7 +118,7 @@ flutter create --platforms=web --project-name=pocket_catalog --no-pub .
 flutter build web --release
 ```
 
-Tests cover shared in-flight requests, TTL boundaries, immutable snapshots, LRU eviction, failure retention, retries after synchronous adapter failures, out-of-order results, stale-cache revalidation, disposal, initial errors, and the browse/search/failed-refresh widget journey. A [GitHub Actions workflow](.github/workflows/ci.yml) runs formatting, analysis, tests, and a release web build. Successful changes on `main` deploy to GitHub Pages; pull requests run checks without publishing.
+Tests cover shared in-flight requests, TTL boundaries, immutable snapshots, LRU eviction, failure retention, retries after synchronous adapter failures, out-of-order results, stale-cache revalidation, disposal, initial errors, the browse/search/failed-refresh widget journey, and race scenarios covering late success, late failure, repeat runs, reset, and disposal. A [GitHub Actions workflow](.github/workflows/ci.yml) runs formatting, analysis, tests, and a release web build. Successful changes on `main` deploy to GitHub Pages; pull requests run checks without publishing.
 
 ## Contribute and explore the roadmap
 
@@ -116,7 +128,7 @@ Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md
 | --- | --- | --- |
 | [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
 | [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | UI and accessibility | Focused checks, tests, and fixes where needed. |
-| [Make out-of-order searches visible (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Demo behavior | A repeatable race scenario with controlled delays. |
+| [Request-race demo (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Implemented | Try late success, late failure, and reset in the live demo. |
 | [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Architecture discussion | Agree typed failures, cancellation ownership, and contract tests before implementation. |
 
 Each issue includes starting files and acceptance criteria. Check the [issue tracker](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues) for current status and comment before starting to avoid duplicate work. These are proposed contributions, not delivery commitments.
