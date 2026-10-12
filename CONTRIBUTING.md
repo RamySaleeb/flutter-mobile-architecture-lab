@@ -32,12 +32,12 @@ Replace `YOUR-USERNAME` with your GitHub username. Platform hosts are generated 
 - Prefer a small interface or function when it solves the problem. Explain why a new package or abstraction is needed.
 - Keep the default demo runnable without API keys or a backend. Use fictional fixtures and code you have the right to share; never submit private client, employer, or startup code.
 
-See the [architecture map](README.md#architecture) for the relevant files. Existing tests live in `test/widget_test.dart`; additional focused `*_test.dart` files are welcome. Use controlled futures and injected clocks rather than real waits for race and TTL tests.
+See the [architecture map](README.md#architecture) for the relevant files. Existing tests live in `test/widget_test.dart`, `test/accessibility_test.dart`, and `test/catalog_http_test.dart`; additional focused `*_test.dart` files are welcome. Use controlled futures and injected clocks rather than real waits for race and TTL tests.
 
 ## Verify a code change
 
 ```bash
-dart format lib test
+dart format lib test tool
 flutter analyze
 flutter test --coverage
 flutter create --platforms=web --project-name=pocket_catalog --no-pub .

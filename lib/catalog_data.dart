@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:async';
 import 'catalog.dart';
 
 /// A bounded, query-keyed session cache. There is no disk persistence.
@@ -16,10 +17,12 @@ class CachedCatalogRepository implements CatalogRepository {
   final Duration ttl;
   final int capacity;
   final _cache = LinkedHashMap<String, CatalogSnapshot>();
-  final _inFlight = <String, Future<CatalogSnapshot>>{};
+  final _inFlight = <String, _CatalogRequest>{};
+  bool _disposed = false;
 
   @override
   CatalogSnapshot? cached(String query) {
+    if (_disposed) return null;
     final key = normalizeQuery(query);
     final snapshot = _cache.remove(key);
     if (snapshot != null) _cache[key] = snapshot;
@@ -34,16 +37,27 @@ class CachedCatalogRepository implements CatalogRepository {
 
   @override
   Future<CatalogSnapshot> refresh(String query) {
+    if (_disposed) return Future.error(const CatalogCancelled());
     final key = normalizeQuery(query);
-    return _inFlight[key] ??= _fetch(key);
+    final existing = _inFlight[key];
+    if (existing != null) return existing.future;
+    final request = _CatalogRequest();
+    _inFlight[key] = request;
+    request.future = _fetch(key, request);
+    return request.future;
   }
 
-  Future<CatalogSnapshot> _fetch(String key) async {
+  Future<CatalogSnapshot> _fetch(String key, _CatalogRequest request) async {
     try {
       // Future.sync also normalizes adapters that throw before returning a Future.
-      final items = await Future<List<CatalogItem>>.sync(
-        () => service.fetch(key),
+      final items = await request.source.signal.bind(
+        Future<List<CatalogItem>>.sync(
+          () => service.fetch(key, cancellation: request.source.signal),
+        ),
       );
+      if (_disposed || request.source.signal.isCancelled) {
+        throw const CatalogCancelled();
+      }
       final snapshot = CatalogSnapshot(items, _clock());
       _cache.remove(key);
       _cache[key] = snapshot;
@@ -53,9 +67,26 @@ class CachedCatalogRepository implements CatalogRepository {
       return snapshot;
     } finally {
       // Failures do not overwrite the last good snapshot or poison retries.
-      final _ = _inFlight.remove(key);
+      if (identical(_inFlight[key], request)) _inFlight.remove(key);
     }
   }
+
+  /// Called by the session owner, never by an individual shared consumer.
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    for (final request in _inFlight.values.toList()) {
+      request.source.cancel();
+    }
+    _inFlight.clear();
+    _cache.clear();
+  }
+}
+
+class _CatalogRequest {
+  final source = CatalogCancellationSource();
+  late final Future<CatalogSnapshot> future;
 }
 
 /// Deliberately simulated transport: no network, credentials, or analytics.
@@ -105,15 +136,32 @@ class DemoCatalogService implements CatalogService {
   ];
 
   @override
-  Future<List<CatalogItem>> fetch(String query) async {
+  Future<List<CatalogItem>> fetch(
+    String query, {
+    CatalogCancellation? cancellation,
+  }) async {
+    if (cancellation?.isCancelled ?? false) throw const CatalogCancelled();
     final key = normalizeQuery(query);
     final shouldFail =
         offline || failNext || (failsForQuery?.call(key) ?? false);
     failNext = false;
-    await Future<void>.delayed(
+    final ready = Completer<void>();
+    final timer = Timer(
       delayForQuery?.call(key) ?? const Duration(milliseconds: 750),
+      () => ready.complete(),
     );
-    if (shouldFail) throw const CatalogUnavailable();
+    final unsubscribe = cancellation?.listen(() {
+      timer.cancel();
+      if (!ready.isCompleted) ready.completeError(const CatalogCancelled());
+    });
+    try {
+      await ready.future;
+      if (cancellation?.isCancelled ?? false) throw const CatalogCancelled();
+    } finally {
+      timer.cancel();
+      unsubscribe?.call();
+    }
+    if (shouldFail) throw const CatalogConnectivityFailure();
     return items
         .where(
           (item) =>

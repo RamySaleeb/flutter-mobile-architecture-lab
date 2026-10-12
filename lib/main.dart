@@ -65,6 +65,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   void resetDemo() {
     ++session;
     controller.dispose();
+    controller.repository.dispose();
     setState(() {
       service = DemoCatalogService();
       controller = CatalogController(CachedCatalogRepository(service));
@@ -78,6 +79,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Future<void> runRace({bool olderFails = false}) async {
     final currentSession = ++session;
     controller.dispose();
+    controller.repository.dispose();
     setState(() {
       // A fresh session prevents cached or in-flight queries hiding the race.
       service = DemoCatalogService(
@@ -128,6 +130,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   void dispose() {
     ++session;
     controller.dispose();
+    controller.repository.dispose();
     search.dispose();
     super.dispose();
   }

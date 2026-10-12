@@ -12,7 +12,10 @@ class ControlledService implements CatalogService {
   final requests = <String, List<Completer<List<CatalogItem>>>>{};
   int get calls => requests.values.fold(0, (n, list) => n + list.length);
   @override
-  Future<List<CatalogItem>> fetch(String query) {
+  Future<List<CatalogItem>> fetch(
+    String query, {
+    CatalogCancellation? cancellation,
+  }) {
     final request = Completer<List<CatalogItem>>();
     (requests[query] ??= []).add(request);
     return request.future;
@@ -21,15 +24,18 @@ class ControlledService implements CatalogService {
   void succeed(String query, [List<CatalogItem> items = const [item]]) =>
       requests[query]!.last.complete(items);
   void fail(String query) =>
-      requests[query]!.last.completeError(const CatalogUnavailable());
+      requests[query]!.last.completeError(const CatalogConnectivityFailure());
 }
 
 class SynchronousFailureService implements CatalogService {
   int calls = 0;
   @override
-  Future<List<CatalogItem>> fetch(String query) {
+  Future<List<CatalogItem>> fetch(
+    String query, {
+    CatalogCancellation? cancellation,
+  }) {
     calls++;
-    throw const CatalogUnavailable();
+    throw const CatalogConnectivityFailure();
   }
 }
 
@@ -88,7 +94,10 @@ void main() {
     service.succeed('');
     final original = await pending;
     pending = repository.refresh('');
-    final failure = expectLater(pending, throwsA(isA<CatalogUnavailable>()));
+    final failure = expectLater(
+      pending,
+      throwsA(isA<CatalogConnectivityFailure>()),
+    );
     service.fail('');
     await failure;
     expect(repository.cached(''), same(original));
@@ -104,7 +113,7 @@ void main() {
     for (var i = 0; i < 2; i++) {
       await expectLater(
         repository.refresh(''),
-        throwsA(isA<CatalogUnavailable>()),
+        throwsA(isA<CatalogConnectivityFailure>()),
       );
     }
     expect(service.calls, 2);
