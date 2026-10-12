@@ -1,7 +1,14 @@
-name: Flutter checks
-on: [push, pull_request]
+name: Flutter checks and live demo
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -17,4 +24,34 @@ jobs:
       - run: flutter analyze
       - run: flutter test --coverage
       - run: flutter create --platforms=web --project-name=pocket_catalog --no-pub .
-      - run: flutter build web --release
+      - name: Set demo page metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          page = Path('web/index.html')
+          html = page.read_text()
+          html = html.replace('<title>pocket_catalog</title>', '<title>Pocket Catalog | Flutter Architecture Lab</title>')
+          html = html.replace('A new Flutter project.', 'Explore an original Flutter architecture demo by Ramy Saleeb: caching, safe refresh, and recoverable errors.')
+          page.write_text(html)
+          PY
+      - run: flutter build web --release --base-href /flutter-mobile-architecture-lab/
+      - uses: actions/configure-pages@v5
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - uses: actions/upload-pages-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: build/web
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy demo
+        id: deployment
+        uses: actions/deploy-pages@v4
