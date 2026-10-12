@@ -1,0 +1,15 @@
+.dart_tool/
+.flutter-plugins-dependencies
+build/
+coverage/
+.idea/
+*.iml
+.DS_Store
+# Generate platform hosts with the documented flutter create command.
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+.metadata

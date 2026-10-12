@@ -1,0 +1,110 @@
+# Pocket Catalog
+
+### A Flutter architecture lab for dependable mobile experiences
+
+An original, runnable demo by [Ramy Saleeb](https://github.com/RamySaleeb), built around one question: **what should the user see when a request is slow, fails, or finishes out of order?**
+
+Pocket Catalog browses fictional products through a simulated service. It keeps useful content visible during refresh, reuses fresh cached results, and prevents older requests from replacing a newer search. No API keys, backend deployment, or private source code required.
+
+**Flutter · Dart · Repository pattern · Immutable state · Stale-while-revalidate · Behavioral tests**
+
+![Pocket Catalog running in a browser](preview.jpg)
+
+## Start here
+
+```bash
+git clone https://github.com/RamySaleeb/flutter-mobile-architecture-lab.git
+cd flutter-mobile-architecture-lab
+flutter pub get
+flutter test
+# Generate standard platform hosts; the architecture source stays in lib/.
+flutter create --platforms=android,ios,web --project-name=pocket_catalog --no-pub .
+flutter run -d chrome
+```
+
+Tested with **Flutter 3.47.7 / Dart 3.13.5**. Use `flutter devices` and `flutter run -d <device-id>` for an Android emulator or iOS simulator. Native runs require the usual Android SDK or Xcode setup; they have not been device-tested for this initial release. Platform scaffolding is generated, not maintained in this repository. There are no third-party runtime packages.
+
+## A two-minute walkthrough
+
+1. Launch the app and wait for the fictional catalog.
+2. Search for `outdoor` using the keyboard search action or arrow button. Submit it again within 30 seconds: results come from the session cache.
+3. Tap **Fail next refresh**. The error offers a retry, while the existing results stay visible.
+4. Turn on **Simulate offline**, then search for a query you have not loaded. You see a recoverable error rather than unrelated cached results.
+5. Turn simulation off and retry. Search for a nonsense word to see the empty state.
+
+The controls simulate service behavior; they do not inspect or alter device connectivity. Availability is sampled when a request starts. Every simulated request takes 750 ms.
+
+## Architecture
+
+```mermaid
+flowchart TD
+  View[Flutter view] --> Controller[CatalogController]
+  Controller --> Contract[CatalogRepository contract]
+  Repo[CachedCatalogRepository] -. implements .-> Contract
+  Repo --> Cache[Bounded session cache]
+  Repo --> Service[CatalogService contract]
+  Demo[DemoCatalogService] -. implements .-> Service
+  Demo --> Data[Fictional catalog]
+```
+
+| Boundary | Responsibility | Read the code |
+| --- | --- | --- |
+| Model and contracts | Immutable snapshots; query normalization; transport/repository interfaces | [catalog.dart](lib/catalog.dart) |
+| Data | Query-keyed cache, TTL, LRU eviction, in-flight request sharing | [catalog_data.dart](lib/catalog_data.dart) |
+| Presentation | Cache-first display, refresh policy, error state, latest-request protection | [catalog_controller.dart](lib/catalog_controller.dart) |
+| UI and composition | Material UI, lifecycle, explicit dependency construction, demo controls | [main.dart](lib/main.dart) |
+| Verification | Deterministic service fakes and a widget journey | [widget_test.dart](test/widget_test.dart) |
+
+The model and data layer do not import Flutter. The controller depends only on Flutter's lightweight notifier and a repository interface. The view constructs dependencies at its composition boundary; individual product widgets do not access services.
+
+## Behavior under pressure
+
+| Situation | Result |
+| --- | --- |
+| First load, no cache | Loading state, then content, empty results, or a retryable error |
+| Same query, fresh cache | Immediate cached content; no service call |
+| Same query, expired cache | Immediate cached content while revalidation runs |
+| Manual refresh | Service call even if the cache is fresh |
+| Failed refresh | Last good snapshot survives; error and retry are shown |
+| Duplicate concurrent query | One shared in-flight service call |
+| Older search completes last | Its result may populate its own cache entry, but cannot replace the current screen |
+| Screen disposed during a request | No later notifier update |
+| More than 20 cached queries | Least recently used entry is evicted |
+
+Freshness is checked when loading, not by a background timer. At exactly 30 seconds an entry is stale. Queries are trimmed and lowercased; the cache never substitutes results from a different query.
+
+## Decisions and tradeoffs
+
+- **Small interfaces over a framework stack.** Constructor injection makes dependencies visible. A container, code generation, and a separate use-case class would add indirection without enough behavior to justify it here.
+- **Latest-result protection over transport cancellation.** A generation counter protects the screen. Older requests still complete and can warm their own cache; real HTTP adapters should add cancellation and timeouts where appropriate.
+- **Bounded in-memory cache over a database.** Twenty query snapshots keep the example readable and bounded. The cache is lost on restart. This is a resilient-read demo, not a durable offline-first sync engine.
+- **Manual retry over hidden retry loops.** The UI preserves context and gives the user control. Production policies need bounded backoff, connectivity handling, observability, and error classification.
+- **Explicit search submission.** There is no request per keystroke and no debounce timer to manage. Concurrent calls are nevertheless protected and tested.
+
+## Verification
+
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test --coverage
+flutter create --platforms=web --project-name=pocket_catalog --no-pub .
+flutter build web --release
+```
+
+Tests cover shared in-flight requests, TTL boundaries, immutable snapshots, LRU eviction, failure retention, retries after synchronous adapter failures, out-of-order results, stale-cache revalidation, disposal, initial errors, and the browse/search/failed-refresh widget journey. A [GitHub Actions workflow](.github/workflows/ci.yml) runs formatting, analysis, tests, and a release web build.
+
+## Scope and next steps
+
+This is a focused architecture showcase, not a shopping product or production template. There are no payments, authentication, real network requests, persistence, background sync, analytics, or deployment credentials. All product names and descriptions are fictional. No private, client, employer, or startup source is included.
+
+Natural extensions are an HTTP adapter with typed errors and cancellation; a durable store with migrations; and platform integration tests. Each should preserve the existing repository contract and observable UI behavior.
+
+## About
+
+Created as a standalone public engineering example for [Ramy Saleeb's GitHub profile](https://github.com/RamySaleeb). For professional background and contact, see [LinkedIn](https://www.linkedin.com/in/ramy-saleeb/).
+
+The separation of view, presentation state, repository, and service is consistent with the [Flutter architecture guide](https://docs.flutter.dev/app-architecture/guide). The implementation and fictional demo content in this repository are original.
+
+## License
+
+[MIT](LICENSE).
