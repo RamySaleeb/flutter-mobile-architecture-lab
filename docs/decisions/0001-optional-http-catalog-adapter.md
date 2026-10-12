@@ -1,13 +1,24 @@
 # 0001 — Optional HTTP catalog adapter
 
-**Status: Proposed — ready for discussion, not implemented or accepted.**  
+**Status: Accepted and implemented — 2026-10-12.**  
 Date: 2026-10-12 · [Roadmap issue #4](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4)
+
+## Implementation record
+
+The owner authorized implementation after reviewing this proposal. The original design below is retained as rationale; its future-tense statements describe the design at proposal time.
+
+- Implemented in [`catalog_http.dart`](../../lib/catalog_http.dart), with domain failures/signals in [`catalog.dart`](../../lib/catalog.dart), owner disposal in the repository, and safe presentation messages in the controller.
+- `http` 1.6.0 is resolved in the lockfile; `fake_async` is a direct test dependency. The public `main.dart` still constructs only `DemoCatalogService`.
+- All 63 regression tests pass, including HTTP contracts, cache sharing/retention, race/reset, keyboard, and large text. The release web build passes.
+- The local [fixture server](../../tool/fixture_server.py) and [HTTP smoke probe](../../tool/http_smoke.dart) pass on the Dart VM and Codex in-app browser on macOS. They check real-client deadlines/abort before headers and mid-body, redirect refusal, and client reuse. This does not claim remote server computation always stops. Android/iOS device transports remain unverified.
+- Redirect policy is explicit: `followRedirects = false`; native exposes redirect status and the browser maps fetch's refused redirect to connectivity failure. Both were checked locally. The repository always rejects late writes even if a service ignores cancellation.
+- Timers and a monotonic elapsed-time callback are injectable. Fake-time unit tests stay separate from the opt-in real-I/O smoke probe. Cache timestamps still use the independently injected wall clock.
 
 ## Decision in brief
 
 Add an optional `HttpCatalogService` behind the existing catalog boundary. Use typed failures, one bounded request deadline, and repository-owned cancellation. Preserve query isolation, shared requests, cached results after failure, and the controller's latest-result guard.
 
-**The public Pocket Catalog demo continues to construct `DemoCatalogService`.** No API keys, backend, endpoint availability, or new setup steps are required to run it. This proposal changes documentation only; the APIs and tests described below are future work.
+**The public Pocket Catalog demo continues to construct `DemoCatalogService`.** No API keys, backend, endpoint availability, or new setup steps are required to run it. The optional implementation is now available; default demo setup is unchanged.
 
 ## Current behavior and constraints
 
@@ -123,6 +134,6 @@ Suggested future files: `lib/catalog_http.dart`, `test/catalog_http_test.dart`, 
 
 ## Review and follow-up scope
 
-Discuss this proposal in [#4](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4), especially the 8-second budget, strict response limits, and owner-only cancellation policy. Agreement is not implied by publication. After acceptance, create a focused implementation issue covering contract migration, adapter, disposal wiring, tests, and optional local fixture instructions. Keep #4 open while the design is under review.
+The owner accepted the 8-second budget, strict response limits, and owner-only cancellation by authorizing implementation. The implementation pull request records code, tests, and validation and closes [#4](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4). Future consumer leases or native device coverage should be separate, focused follow-ups.
 
 Out of scope: authentication, API keys, payments, background sync, durable storage, pagination, automatic retries, production hosting, a public backend commitment, and production observability. All fixtures and example code remain original and fictional; no private, employer, client, or startup source is used.
