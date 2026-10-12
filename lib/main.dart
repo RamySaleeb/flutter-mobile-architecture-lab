@@ -1,10 +1,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'catalog.dart';
 import 'catalog_controller.dart';
 import 'catalog_data.dart';
 
-void main() => runApp(const PocketCatalogApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Keep browser semantics available for the lifetime of this small demo.
+  SemanticsBinding.instance.ensureSemantics();
+  runApp(const PocketCatalogApp());
+}
+
+ButtonStyle accessibleButtonStyle() => ButtonStyle(
+  minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+  side: WidgetStateProperty.resolveWith(
+    (states) => states.contains(WidgetState.focused)
+        ? const BorderSide(color: Color(0xff17685d), width: 3)
+        : null,
+  ),
+);
 
 class PocketCatalogApp extends StatelessWidget {
   const PocketCatalogApp({super.key});
@@ -14,6 +29,11 @@ class PocketCatalogApp extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: accessibleButtonStyle(),
+      ),
+      textButtonTheme: TextButtonThemeData(style: accessibleButtonStyle()),
+      iconButtonTheme: IconButtonThemeData(style: accessibleButtonStyle()),
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff17685d)),
       scaffoldBackgroundColor: const Color(0xfff5f7f3),
       inputDecorationTheme: const InputDecorationTheme(
@@ -125,248 +145,290 @@ class _CatalogScreenState extends State<CatalogScreen> {
             builder: (context, _) {
               final state = controller.state;
               final items = state.snapshot?.items ?? const <CatalogItem>[];
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const Text(
-                    'POCKET / ARCHITECTURE LAB',
-                    style: TextStyle(
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xff17685d),
-                    ),
+              return FocusTraversalGroup(
+                policy: WidgetOrderTraversalPolicy(),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(
+                    MediaQuery.sizeOf(context).width < 480 ? 16 : 24,
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'A calmer way to browse.',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Fictional products. Real loading, caching, and recovery behavior.',
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    enabled: !raceRunning,
-                    controller: search,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (value) => unawaited(controller.load(value)),
-                    decoration: InputDecoration(
-                      labelText: 'Search the catalog',
-                      hintText: 'Try outdoor, workspace, or a product name',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        tooltip: 'Search',
-                        icon: const Icon(Icons.arrow_forward),
-                        onPressed: raceRunning
-                            ? null
-                            : () => unawaited(controller.load(search.text)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Chip(
-                        avatar: Icon(
-                          state.fromCache
-                              ? Icons.inventory_2_outlined
-                              : Icons.cloud_done_outlined,
-                          size: 18,
-                        ),
-                        label: Text(
-                          state.loading
-                              ? 'Loading…'
-                              : state.snapshot == null
-                              ? 'No data yet'
-                              : state.fromCache
-                              ? 'Session cache'
-                              : 'Fresh from demo service',
+                      const Text(
+                        'POCKET / ARCHITECTURE LAB',
+                        style: TextStyle(
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xff17685d),
                         ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: state.loading || raceRunning
-                            ? null
-                            : refresh,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
+                      const SizedBox(height: 14),
+                      Text(
+                        'A calmer way to browse.',
+                        style: Theme.of(context).textTheme.headlineLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Fictional products. Real loading, caching, and recovery behavior.',
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Search the catalog'),
+                      const SizedBox(height: 8),
+                      Semantics(
+                        label: 'Search the catalog',
+                        child: TextField(
+                          enabled: !raceRunning,
+                          controller: search,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (value) =>
+                              unawaited(controller.load(value)),
+                          decoration: InputDecoration(
+                            hintText: 'Try outdoor',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: IconButton(
+                              tooltip: 'Search',
+                              icon: const Icon(
+                                Icons.arrow_forward,
+                                semanticLabel: 'Search',
+                              ),
+                              onPressed: raceRunning
+                                  ? null
+                                  : () =>
+                                        unawaited(controller.load(search.text)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Text(
-                            'See a request race',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Text(
-                            'Start a slow Outdoor search, then a fast '
-                            'Workspace search. The latest search must win. '
-                            'Each run starts a fresh demo session.',
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton(
-                                onPressed: raceRunning
-                                    ? null
-                                    : () => unawaited(runRace()),
-                                child: const Text('Run request race'),
+                          Semantics(
+                            liveRegion: true,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
                               ),
-                              OutlinedButton(
-                                onPressed: raceRunning
-                                    ? null
-                                    : () =>
-                                          unawaited(runRace(olderFails: true)),
-                                child: const Text('Run with older failure'),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffe7f2ee),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              TextButton(
-                                onPressed: resetDemo,
-                                child: const Text('Reset demo'),
-                              ),
-                            ],
-                          ),
-                          if (raceStatus != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Semantics(
-                                liveRegion: true,
-                                child: Text(raceStatus!),
+                              child: Text(
+                                state.loading
+                                    ? 'Loading catalog…'
+                                    : state.snapshot == null
+                                    ? 'No data yet'
+                                    : state.fromCache
+                                    ? 'Session cache'
+                                    : 'Fresh from demo service',
                               ),
                             ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: state.loading || raceRunning
+                                ? null
+                                : refresh,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Refresh'),
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                  if (state.loading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: LinearProgressIndicator(),
-                    ),
-                  if (state.error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Card(
-                        color: Theme.of(context).colorScheme.errorContainer,
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 0,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(state.error!, semanticsLabel: state.error),
-                              TextButton(
-                                onPressed: refresh,
-                                child: const Text('Retry'),
+                              Text(
+                                'See a request race',
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
+                              const Text(
+                                'Start a slow Outdoor search, then a fast '
+                                'Workspace search. The latest search must win. '
+                                'Each run starts a fresh demo session.',
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: raceRunning
+                                        ? null
+                                        : () => unawaited(runRace()),
+                                    child: const Text('Run request race'),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: raceRunning
+                                        ? null
+                                        : () => unawaited(
+                                            runRace(olderFails: true),
+                                          ),
+                                    child: const Text('Run with older failure'),
+                                  ),
+                                  TextButton(
+                                    onPressed: resetDemo,
+                                    child: const Text('Reset demo'),
+                                  ),
+                                ],
+                              ),
+                              if (raceStatus != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Semantics(
+                                    liveRegion: true,
+                                    child: Text(raceStatus!),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                  if (!state.loading && state.error == null && items.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No matches. Try another search.'),
-                    ),
-                  const SizedBox(height: 8),
-                  for (final item in items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Card(
-                        elevation: 0,
-                        color: Colors.white,
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const CircleAvatar(
-                                child: Icon(Icons.category_outlined),
+                      if (state.loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: ExcludeSemantics(
+                            child: LinearProgressIndicator(),
+                          ),
+                        ),
+                      if (state.error != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Card(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Semantics(
+                                    liveRegion: true,
+                                    child: Text(state.error!),
+                                  ),
+                                  TextButton(
+                                    onPressed: refresh,
+                                    child: const Text('Retry'),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.category.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        letterSpacing: 1.5,
-                                        color: Color(0xff17685d),
+                            ),
+                          ),
+                        ),
+                      if (!state.loading &&
+                          state.error == null &&
+                          items.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Text('No matches. Try another search.'),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      for (final item in items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (MediaQuery.sizeOf(context).width >= 480 &&
+                                      MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(14) <=
+                                          21) ...[
+                                    const ExcludeSemantics(
+                                      child: CircleAvatar(
+                                        child: Icon(Icons.category_outlined),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      item.title,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(item.description),
+                                    const SizedBox(width: 16),
                                   ],
-                                ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.category.toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            letterSpacing: 1.5,
+                                            color: Color(0xff17685d),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.title,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleLarge,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(item.description),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      Card(
+                        elevation: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Try the failure path',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const Text(
+                                'These controls simulate service availability. They do not change your device connection.',
+                              ),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Simulate offline'),
+                                value: service.offline,
+                                onChanged: raceRunning
+                                    ? null
+                                    : (value) => setState(
+                                        () => service.offline = value,
+                                      ),
+                              ),
+                              OutlinedButton(
+                                onPressed: state.loading || raceRunning
+                                    ? null
+                                    : () {
+                                        service.failNext = true;
+                                        refresh();
+                                      },
+                                child: const Text('Fail next refresh'),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Cache lasts only for this session. Search uses the keyboard action or arrow button.',
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 16),
-                  Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Try the failure path',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Text(
-                            'These controls simulate service availability. They do not change your device connection.',
-                          ),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Simulate offline'),
-                            value: service.offline,
-                            onChanged: raceRunning
-                                ? null
-                                : (value) =>
-                                      setState(() => service.offline = value),
-                          ),
-                          OutlinedButton(
-                            onPressed: state.loading || raceRunning
-                                ? null
-                                : () {
-                                    service.failNext = true;
-                                    refresh();
-                                  },
-                            child: const Text('Fail next refresh'),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Cache lasts only for this session. Search uses the keyboard action or arrow button.',
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               );
             },
           ),
