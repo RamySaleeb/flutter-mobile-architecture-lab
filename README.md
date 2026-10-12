@@ -61,6 +61,16 @@ Both scenarios force new requests in an isolated session, so repeats work even a
 
 These are deterministic simulated delays, not a network benchmark. Request deduplication and completion ordering are also covered by controlled tests.
 
+## Keyboard and accessibility
+
+Use **Tab** and **Shift+Tab** to move between controls. Search accepts the keyboard search action; buttons support **Enter**, and the offline switch supports **Space**. Focused buttons show a strong green outline. Controls below the results remain in the focus order and scroll into view when focused.
+
+The search field and submit icon have accessible names. Loading, error, empty-result, and race messages expose live regions. Browser semantics are enabled at startup. Status text wraps, buttons retain at least 48-pixel minimum dimensions, and decorative product icons are omitted in narrow or enlarged-text layouts to leave room for content.
+
+Automated checks in [accessibility_test.dart](test/accessibility_test.dart) cover a **320 logical-pixel viewport with 2x text**, scrolling to recovery controls, keyboard search/Refresh/offline/Retry, reverse traversal, focus styling, and control/status semantics. The existing cache and race tests also run.
+
+Manual verification uses the **Codex in-app browser on macOS** for keyboard navigation and the exposed browser accessibility tree. No external screen reader or native Android/iOS accessibility service has been tested; this is not a WCAG compliance claim. If you find a barrier, include your browser, OS, assistive technology, text size, and reproduction steps in an issue.
+
 ## Architecture
 
 ```mermaid
@@ -127,7 +137,7 @@ Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md
 | Opportunity | Starting point | Scope |
 | --- | --- | --- |
 | [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
-| [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | UI and accessibility | Focused checks, tests, and fixes where needed. |
+| [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | Implemented | Keyboard traversal, readable status text, and focused accessibility regression tests. |
 | [Request-race demo (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Implemented | Try late success, late failure, and reset in the live demo. |
 | [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Architecture discussion | Agree typed failures, cancellation ownership, and contract tests before implementation. |
 
