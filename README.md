@@ -28,7 +28,7 @@ flutter create --platforms=android,ios,web --project-name=pocket_catalog --no-pu
 flutter run -d chrome
 ```
 
-Tested with **Flutter 3.47.7 / Dart 3.13.5**. Use `flutter devices` and `flutter run -d <device-id>` for an Android emulator or iOS simulator. Native runs require the usual Android SDK or Xcode setup; they have not been device-tested for this initial release. Platform scaffolding is generated, not maintained in this repository. There are no third-party runtime packages.
+Tested with **Flutter 3.47.7 / Dart 3.13.5**. Use `flutter devices` and `flutter run -d <device-id>` for an Android emulator or iOS simulator. Native runs require the usual Android SDK or Xcode setup; they have not been device-tested for this initial release. Platform scaffolding is generated, not maintained in this repository. The optional HTTP adapter uses `http` 1.6.0; the default demo still constructs only the simulated service.
 
 ## A two-minute walkthrough
 
@@ -57,7 +57,7 @@ Near the search field, choose **Run request race**. No fast typing is needed:
 
 Choose **Run with older failure** to repeat the sequence with the older request failing. Workspace remains visible, and the obsolete error does not replace the current screen. The status text explains each stage.
 
-Both scenarios force new requests in an isolated session, so repeats work even after those queries were cached. Search and failure controls pause during a race; **Reset demo** is always available and restores normal browsing, an empty cache, and default simulation settings. Late completions from a reset session cannot update the screen. After a completed race, ordinary requests use the normal 750 ms delay again.
+Both scenarios force new requests in an isolated session, so repeats work even after those queries were cached. Search and failure controls pause during a race; **Reset demo** is always available and restores normal browsing, an empty cache, and default simulation settings. Reset cancels the old session’s simulated timers; late completions cannot update the screen or its cache. After a completed race, ordinary requests use the normal 750 ms delay again.
 
 These are deterministic simulated delays, not a network benchmark. Request deduplication and completion ordering are also covered by controlled tests.
 
@@ -113,15 +113,41 @@ Freshness is checked when loading, not by a background timer. At exactly 30 seco
 ## Decisions and tradeoffs
 
 - **Small interfaces over a framework stack.** Constructor injection makes dependencies visible. A container, code generation, and a separate use-case class would add indirection without enough behavior to justify it here.
-- **Latest-result protection over transport cancellation.** A generation counter protects the screen. Older requests still complete and can warm their own cache; real HTTP adapters should add cancellation and timeouts where appropriate.
+- **Latest-result protection plus owner-controlled cancellation.** A generation counter protects the screen. Changing searches allows older requests to warm their own cache; resetting or disposing the owning session cancels its work. Disposing one controller never cancels another consumer’s shared request.
 - **Bounded in-memory cache over a database.** Twenty query snapshots keep the example readable and bounded. The cache is lost on restart. This is a resilient-read demo, not a durable offline-first sync engine.
 - **Manual retry over hidden retry loops.** The UI preserves context and gives the user control. Production policies need bounded backoff, connectivity handling, observability, and error classification.
 - **Explicit search submission.** There is no request per keystroke and no debounce timer to manage. Concurrent calls are nevertheless protected and tested.
 
+## Optional HTTP adapter
+
+[`HttpCatalogService`](lib/catalog_http.dart) implements the same service boundary with typed timeout, connectivity, HTTP-status, invalid-response, and cancellation failures. Each shared HTTP operation has one 8-second deadline covering headers, body streaming, and decoding. Strict JSON validation and response-size limits prevent partial or unbounded results. Failures retain the last good snapshot; retries remain manual.
+
+The repository owns cancellation. A controller changing queries or disposing does not abort a request another caller needs. Resetting the owning session cancels pending work, clears timers/streams, and blocks late cache writes. The injected HTTP client belongs to its composition owner, which closes it at shutdown.
+
+**The public live demo remains simulated, with no API keys or catalog network requests.** HTTP is opt-in code, not a mode visitors can accidentally enable. See the [design and implementation notes](docs/decisions/0001-optional-http-catalog-adapter.md) for wire format, ownership, and limits.
+
+To exercise real HTTP locally without credentials, run this fictional fixture server from the repository root:
+
+```bash
+python3 tool/fixture_server.py
+```
+
+In another terminal:
+
+```bash
+dart run tool/http_smoke.dart
+# Optional browser check: compile, then open http://127.0.0.1:8767/smoke.html
+dart compile js tool/http_smoke.dart -o build/http_smoke.js
+```
+
+The probe checks success, typed failures, cancellation and deadlines before headers/mid-body, redirect refusal, and client reuse. It prints `HTTP SMOKE PASSED` on success. Stop the local server with Ctrl+C. HTTP requires explicit loopback opt-in; external endpoints must use HTTPS. Redirects are refused: native HTTP exposes their status, while browser fetch reports a connectivity failure. Browser CORS failures cannot reliably be distinguished from other connectivity failures.
+
+Verified on the Dart VM and Codex in-app browser on macOS; Android/iOS device transports have not been tested. [`catalog_http_test.dart`](test/catalog_http_test.dart) runs deterministic injected-client and fake-time checks without starting a server or contacting the internet.
+
 ## Verification
 
 ```bash
-dart format --output=none --set-exit-if-changed lib test
+dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze
 flutter test --coverage
 flutter create --platforms=web --project-name=pocket_catalog --no-pub .
@@ -139,15 +165,15 @@ Want to improve the example? Start with the [contribution guide](CONTRIBUTING.md
 | [Test clock rollback and cache freshness (#1)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/1) | Good first issue | A deterministic regression test; no production change. |
 | [Keyboard access and large-text layouts (#2)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/2) | Implemented | Keyboard traversal, readable status text, and focused accessibility regression tests. |
 | [Request-race demo (#3)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/3) | Implemented | Try late success, late failure, and reset in the live demo. |
-| [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Proposal ready for review | Read the [HTTP adapter design](docs/decisions/0001-optional-http-catalog-adapter.md): typed failures, deadlines, shared-request cancellation, and tests. |
+| [Design an optional HTTP adapter (#4)](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues/4) | Implemented | Optional adapter, typed failures, deadlines, owner cancellation, and [tests](test/catalog_http_test.dart); public demo stays simulated. |
 
 Each issue includes starting files and acceptance criteria. Check the [issue tracker](https://github.com/RamySaleeb/flutter-mobile-architecture-lab/issues) for current status and comment before starting to avoid duplicate work. These are proposed contributions, not delivery commitments.
 
 ## Scope and next steps
 
-This is a focused architecture showcase, not a shopping product or production template. There are no payments, authentication, real network requests, persistence, background sync, analytics, or deployment credentials. All product names and descriptions are fictional. No private, client, employer, or startup source is included.
+This is a focused architecture showcase, not a shopping product or production template. The public demo has no payments, authentication, catalog network requests, persistence, background sync, analytics, or deployment credentials. Real HTTP is available only through the separately constructed optional adapter. All product names and descriptions are fictional. No private, client, employer, or startup source is included.
 
-Natural extensions are an HTTP adapter with typed errors and cancellation; a durable store with migrations; and platform integration tests. Each should preserve the existing repository contract and observable UI behavior.
+Natural extensions are a durable store with migrations and native device integration tests. Each should preserve the existing repository contract and observable UI behavior.
 
 ## About
 
